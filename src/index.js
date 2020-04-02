@@ -56,6 +56,7 @@ export default class VueI18n {
   pluralizationRules: {
     [lang: string]: (choice: number, choicesLength: number) => number
   }
+  i18nextPluralization: boolean
 
   constructor (options: I18nOptions = {}) {
     // Auto install if it is not done yet and `window` has `Vue`.
@@ -98,6 +99,7 @@ export default class VueI18n {
       ? false
       : !!options.preserveDirectiveContent
     this.pluralizationRules = options.pluralizationRules || {}
+    this.i18nextPluralization = !!options.i18nextPluralization
     this._warnHtmlInMessage = options.warnHtmlInMessage || 'off'
     this._postTranslation = options.postTranslation || null
 
@@ -552,7 +554,46 @@ export default class VueI18n {
     const parsedArgs = parseArgs(...values)
     parsedArgs.params = Object.assign(predefined, parsedArgs.params)
     values = parsedArgs.locale === null ? [parsedArgs.params] : [parsedArgs.locale, parsedArgs.params]
-    return this.fetchChoice(this._t(key, _locale, messages, host, ...values), choice)
+
+    if (this.i18nextPluralization) {
+      // i18next pluralization
+      const keyExists = function (key) {
+        return key in messages[_locale]
+      }
+      const choicesKeys = [];
+      const match = key.match(/(.*)_0$/)
+      if (match) {
+        // Indexed form
+        // Singular key looks like `example_0`, subsequent plural forms look like `example_1`, `example_2` etc
+        // Supports an arbitrary number of forms
+        const stub = match[1]
+        let i = 0
+        while (1) {
+          i++
+          const choiceKey = `${stub}_${i}`
+          if (!keyExists(choiceKey)) break
+          choicesKeys.push(choiceKey)
+        }
+      }
+      else {
+        // Named form
+        // Singular key looks like `example`, plural key `example_plural`.
+        // No more than 2 forms supported.
+        choicesKeys.push(key)
+        const plural = `${key}_plural`
+        if (keyExists(plural)) {
+          choicesKeys.push(plural)
+        }
+      }
+      // We've collected the indexes of all the possible choices,
+      // use the standard getChoiceIndex function to decide which of them to render.
+      const choiceIndex = this.getChoiceIndex(choice, choicesKeys.length)
+      return this._t(choicesKeys[choiceIndex], _locale, messages, host, ...values)
+    }
+    else {
+      // Standard pluralization
+      return this.fetchChoice(this._t(key, _locale, messages, host, ...values), choice)
+    }
   }
 
   fetchChoice (message: string, choice: number): ?string {

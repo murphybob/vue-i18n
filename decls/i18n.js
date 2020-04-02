@@ -79,6 +79,7 @@ declare type I18nOptions = {
   silentTranslationWarn?: boolean | RegExp,
   silentFallbackWarn?: boolean | RegExp,
   pluralizationRules?: PluralizationRules,
+  i18nextPluralization?: boolean,
   preserveDirectiveContent?: boolean,
   warnHtmlInMessage?: WarnHtmlInMessageLevel,
   sharedMessages?: LocaleMessage,

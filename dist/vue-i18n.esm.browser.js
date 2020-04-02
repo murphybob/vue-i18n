@@ -1076,6 +1076,8 @@ class VueI18n {
   
   
   
+  
+  
 
   constructor (options = {}) {
     // Auto install if it is not done yet and `window` has `Vue`.
@@ -1118,7 +1120,9 @@ class VueI18n {
       ? false
       : !!options.preserveDirectiveContent;
     this.pluralizationRules = options.pluralizationRules || {};
+    this.i18nextPluralization = !!options.i18nextPluralization;
     this._warnHtmlInMessage = options.warnHtmlInMessage || 'off';
+    this._postTranslation = options.postTranslation || null;
 
     this._exist = (message, key) => {
       if (!message || !key) { return false }
@@ -1279,6 +1283,9 @@ class VueI18n {
       });
     }
   }
+
+  get postTranslation () { return this._postTranslation }
+  set postTranslation (handler) { this._postTranslation = handler; }
 
   _getMessages () { return this._vm.messages }
   _getDateTimeFormats () { return this._vm.dateTimeFormats }
@@ -1496,7 +1503,7 @@ class VueI18n {
     const parsedArgs = parseArgs(...values);
     const locale = parsedArgs.locale || _locale;
 
-    const ret = this._translate(
+    let ret = this._translate(
       messages, locale, this.fallbackLocale, key,
       host, 'string', parsedArgs.params
     );
@@ -1508,7 +1515,11 @@ class VueI18n {
       if (!this._root) { throw Error('unexpected error') }
       return this._root.$t(key, ...values)
     } else {
-      return this._warnDefault(locale, key, ret, host, values, 'string')
+      ret = this._warnDefault(locale, key, ret, host, values, 'string');
+      if (this._postTranslation) {
+        ret = this._postTranslation(ret);
+      }
+      return ret
     }
   }
 
@@ -1558,7 +1569,60 @@ class VueI18n {
     const parsedArgs = parseArgs(...values);
     parsedArgs.params = Object.assign(predefined, parsedArgs.params);
     values = parsedArgs.locale === null ? [parsedArgs.params] : [parsedArgs.locale, parsedArgs.params];
-    return this.fetchChoice(this._t(key, _locale, messages, host, ...values), choice)
+
+    console.log(JSON.parse(JSON.stringify(_locale)));
+    console.log(JSON.parse(JSON.stringify(messages)));
+
+    if (this.i18nextPluralization) {
+      console.log("I18NEXT PLURALIZATION!!!");
+      // We're using i18next pluralization
+      const keyExists = function (key) {
+        return key in messages[_locale]
+      };
+      const choicesKeys = [];
+      const match = key.match(/(.*)_0$/);
+      if (match) {
+        // Indexed form
+        const stub = match[1];
+        let i = 0;
+        while (1) {
+          i++;
+          const choiceKey = `${stub}_${i}`;
+          if (!keyExists(choiceKey)) break
+          choicesKeys.push(choiceKey);
+        }
+      }
+      else {
+        // _plural form
+        choicesKeys.push(key);
+        const plural = `${key}_plural`;
+        if (keyExists(plural)) {
+          choicesKeys.push(plural);
+        }
+      }
+      console.log("CHOICES", choicesKeys);
+      const choiceIndex = this.getChoiceIndex(choice, choicesKeys.length);
+      console.log("CHOICE INDEX", choiceIndex);
+      return this._t(choicesKeys[choiceIndex], _locale, messages, host, ...values)
+    }
+
+    // if (key.endsWith("_0")) {
+    //   const newMessageParts = [];
+    //   for (let i = 0; i <= 5; i++) {
+    //     const variantKey = key.replace(/_0$/, `_${i}`);
+    //     console.log({key, variantKey, _locale, messages, host, values, choice})
+    //     const newMessagePart = this._t(variantKey, _locale, messages, host, ...values);
+    //     if (!newMessagePart) break;
+    //     newMessageParts.push(newMessagePart)
+    //   }
+    //   console.log(newMessageParts)
+    //   const newMessage = newMessageParts.join("|");
+    //   return this.fetchChoice(newMessage, choice) + " Tomato"
+    // }
+    else {
+      console.log("BORING OLD PLURALIZATION :-(");
+      return this.fetchChoice(this._t(key, _locale, messages, host, ...values), choice) + " Potato"
+    }
   }
 
   fetchChoice (message, choice) {
@@ -1619,7 +1683,6 @@ class VueI18n {
   setLocaleMessage (locale, message) {
     if (this._warnHtmlInMessage === 'warn' || this._warnHtmlInMessage === 'error') {
       this._checkLocaleMessage(locale, this._warnHtmlInMessage, message);
-      if (this._warnHtmlInMessage === 'error') { return }
     }
     this._vm.$set(this._vm.messages, locale, message);
   }
@@ -1627,7 +1690,6 @@ class VueI18n {
   mergeLocaleMessage (locale, message) {
     if (this._warnHtmlInMessage === 'warn' || this._warnHtmlInMessage === 'error') {
       this._checkLocaleMessage(locale, this._warnHtmlInMessage, message);
-      if (this._warnHtmlInMessage === 'error') { return }
     }
     this._vm.$set(this._vm.messages, locale, merge({}, this._vm.messages[locale] || {}, message));
   }
@@ -1734,10 +1796,24 @@ class VueI18n {
 
   setNumberFormat (locale, format) {
     this._vm.$set(this._vm.numberFormats, locale, format);
+    this._clearNumberFormat(locale, format);
   }
 
   mergeNumberFormat (locale, format) {
     this._vm.$set(this._vm.numberFormats, locale, merge(this._vm.numberFormats[locale] || {}, format));
+    this._clearNumberFormat(locale, format);
+  }
+
+  _clearNumberFormat (locale, format) {
+    for (const key in format) {
+      const id = `${locale}__${key}`;
+
+      if (!this._numberFormatters.hasOwnProperty(id)) {
+        continue
+      }
+
+      delete this._numberFormatters[id];
+    }
   }
 
   _getNumberFormatter (
@@ -1890,6 +1966,6 @@ Object.defineProperty(VueI18n, 'availabilities', {
 });
 
 VueI18n.install = install;
-VueI18n.version = '8.15.5';
+VueI18n.version = '8.16.0';
 
 export default VueI18n;
