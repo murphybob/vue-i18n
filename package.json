@@ -1,10 +1,10 @@
 {
   "name": "vue-i18n",
   "description": "Internationalization plugin for Vue.js",
-  "version": "8.16.0-wegift",
+  "version": "8.16.1",
   "author": {
-    "name": "kazuya kawaguchi",
-    "email": "kawakazu80@gmail.com"
+    "name": "Rob Murphy",
+    "email": "murphybob@example.com"
   },
   "bugs": {
     "url": "https://github.com/kazupon/vue-i18n/issues"
@@ -106,7 +106,7 @@
   "module": "dist/vue-i18n.esm.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kazupon/vue-i18n.git"
+    "url": "git+https://github.com/murphybob/vue-i18n.git"
   },
   "resolutions": {
     "webpack-dev-middleware": "3.6.0"
@@ -135,5 +135,6 @@
   },
   "sideEffects": false,
   "types": "types/index.d.ts",
-  "unpkg": "dist/vue-i18n.js"
+  "unpkg": "dist/vue-i18n.js",
+  "publishConfig": { "registry": "https://npm.pkg.github.com/" }
 }
